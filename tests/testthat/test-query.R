@@ -78,24 +78,26 @@ test_that("at_location requires string literal arguments", {
     fixed = TRUE)
 
   res <- query_parse(quote(at_location("a", "b")))
-  expect_equal(res,
-               list(type = "at_location",
-                    args = list(list(type = "literal", value = "a"),
-                                list(type = "literal", value = "b"))))
+  expect_equal(res$type, "at_location")
+  expect_equal(res$args, list(list(type = "literal", value = "a"),
+                              list(type = "literal", value = "b")))
 })
 
 
 test_that("Queries can only be name and parameter", {
-  expect_equal(
-    query_parse(quote(name == "data")),
-    list(type = "test", name = "==",
-         args = list(list(type = "lookup", name = "name"),
-                     list(type = "literal", value = "data"))))
-  expect_equal(
-    query_parse(quote(parameter:x == 1)),
-    list(type = "test", name = "==",
-         args = list(list(type = "lookup", name = "parameter", query = "x"),
-                     list(type = "literal", value = 1))))
+  res <- query_parse(quote(name == "data"))
+  expect_equal(res$type, "test")
+  expect_equal(res$name, "==")
+  expect_equal(res$args,
+               list(list(type = "lookup", name = "name"),
+                    list(type = "literal", value = "data")))
+
+  res <- query_parse(quote(parameter:x == 1))
+  expect_equal(res$type, "test")
+  expect_equal(res$name, "==")
+  expect_equal(res$args,
+               list(list(type = "lookup", name = "parameter", query = "x"),
+                    list(type = "literal", value = 1)))
   expect_error(
     query_parse(quote(date >= "2022-02-04")),
     "Unhandled query expression value 'date'")

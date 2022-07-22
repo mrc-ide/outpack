@@ -272,9 +272,13 @@ query_eval_latest <- function(query, index, pars) {
 
 query_eval_single <- function(query, index, pars) {
   candidates <- query_eval(query$args[[1]], index, pars)
-  if (length(candidates) != 1) {
-    query_eval_error("Query did not produce exactly one id",
-                     query$expr, query$context)
+  len <- length(candidates)
+  if (len == 0) {
+    query_eval_error("Query did not find any packets", query$expr, query$context)
+  } else if (len > 1) {
+    query_eval_error(
+      sprintf("Query found %d packets, but expected exactly one", len),
+      query$expr, query$context)
   }
   candidates
 }

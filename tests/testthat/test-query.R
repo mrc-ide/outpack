@@ -230,6 +230,22 @@ test_that("Can filter based on given values", {
 })
 
 
+test_that("single requires exactly one packet", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp, recursive = TRUE))
+  root <- outpack_init(tmp, use_file_store = TRUE)
+
+  ids <- vcapply(1:3, function(i)
+    create_random_packet(tmp, "x", list(a = i)))
+  expect_equal(outpack_query(quote(single(parameter:a == 2)), root = root),
+               ids[[2]])
+  expect_error(outpack_query(quote(single(parameter:a >= 2)), root = root),
+               "Query found 2 packets, but expected exactly one")
+  expect_error(outpack_query(quote(single(parameter:a > 10)), root = root),
+               "Query did not find any packets")
+})
+
+
 test_that("switch statements will prevent regressions", {
   skip_if_not_installed("mockery")
   mockery::stub(query_parse_expr, "query_parse_check_call",
@@ -319,5 +335,5 @@ test_that("outpack_query allows ids", {
   expect_identical(outpack_query(ids[[2]], root = root), ids[[2]])
   expect_error(
     outpack_query("20220722-085951-148b7686", root = root),
-    "Query did not produce exactly one id")
+    "Query did not find any packets")
 })

@@ -55,11 +55,16 @@ outpack_query <- function(expr, pars = NULL, scope = NULL,
 
 query_parse <- function(expr) {
   if (is.character(expr)) {
-    expr <- parse(text = expr, keep.source = FALSE)
-    if (length(expr) != 1L) {
-      stop("Expected a single expression")
+    if (length(expr) == 1 && grepl(re_id, expr)) {
+      ## If we're given a single id, we construct a simple query with it
+      expr <- bquote(single(id == .(expr)))
+    } else {
+      expr <- parse(text = expr, keep.source = FALSE)
+      if (length(expr) != 1L) {
+        stop("Expected a single expression")
+      }
+      expr <- expr[[1L]]
     }
-    expr <- expr[[1L]]
   } else if (!is.language(expr)) {
     stop("Invalid input for query")
   }
@@ -76,7 +81,7 @@ query_parse <- function(expr) {
 query_functions <- list(
   group = list("(" = 1, "!" = 1, "&&" = 2, "||" = 2),
   test = list("==" = 2, "!=" = 2, "<" = 2, "<=" = 2, ">" = 2, ">=" = 2),
-  other = list(latest = c(0, 1), at_location = c(1, Inf)))
+  other = list(latest = c(0, 1), single = 1, at_location = c(1, Inf)))
 
 
 query_parse_expr <- function(expr, context) {
@@ -85,6 +90,7 @@ query_parse_expr <- function(expr, context) {
          test = query_parse_test(expr, context),
          group = query_parse_group(expr, context),
          latest = query_parse_latest(expr, context),
+         single = query_parse_single(expr, context),
          at_location = query_parse_at_location(expr, context),
          ## normally unreachable
          stop("Unhandled expression [outpack bug - please report]"))
@@ -107,6 +113,12 @@ query_parse_group <- function(expr, context) {
 
 query_parse_latest <- function(expr, context) {
   list(type = "latest",
+       args = lapply(expr[-1], query_parse_expr, context))
+}
+
+
+query_parse_single <- function(expr, context) {
+  list(type = "single",
        args = lapply(expr[-1], query_parse_expr, context))
 }
 
@@ -195,9 +207,9 @@ query_parse_check_call <- function(expr, context) {
 query_parse_value <- function(expr, context) {
   if (is.numeric(expr) || is.character(expr) || is.logical(expr)) {
     list(type = "literal", value = expr)
-  } else if (identical(expr, quote(name))) {
+  } else if (identical(expr, quote(name)) || identical(expr, quote(id))) {
     list(type = "lookup",
-         name = "name")
+         name = deparse(expr))
   } else if (is_call(expr, ":")) {
     name <- deparse_str(expr[[2]])
     valid <- c("parameter", "this")
@@ -223,6 +235,7 @@ query_eval <- function(query, index, pars) {
          group = query_eval_group(query, index, pars),
          test = query_eval_test(query, index, pars),
          latest = query_eval_latest(query, index, pars),
+         single = query_eval_single(query, index, pars),
          at_location = query_eval_at_location(query, index, pars),
          ## Normally unreachable
          stop("Unhandled expression [outpack bug - please report]"))
@@ -239,6 +252,20 @@ query_eval_latest <- function(query, index, pars) {
 }
 
 
+query_eval_single <- function(query, index, pars) {
+  if (length(query$args) == 0) {
+    candidates <- index$id
+  } else {
+    candidates <- query_eval(query$args[[1]], index, pars)
+  }
+  if (length(candidates) != 1) {
+    ## Here, we need to also track the query, for good reporting.
+    stop("Query did not produce exactly one id")
+  }
+  candidates
+}
+
+
 query_eval_at_location <- function(query, index, pars) {
   location <- vcapply(query$args, "[[", "value")
   i <- vlapply(index$location, function(x) any(x %in% location))
@@ -249,6 +276,7 @@ query_eval_at_location <- function(query, index, pars) {
 query_eval_lookup <- function(query, index, pars) {
   switch(query$name,
          name = index$name,
+         id = index$id,
          parameter = lapply(index$parameters, "[[", query$query),
          this = query_lookup_this(query$query, pars),
          ## Normally unreachable

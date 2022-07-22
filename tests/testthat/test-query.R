@@ -292,3 +292,30 @@ test_that("Can filter query to packets that are locally available (unpacked)", {
                   root = path$a),
     ids$x)
 })
+
+
+test_that("Parse literal id query", {
+  id <- "20220722-085951-148b7686"
+  res <- query_parse(id)
+  expect_identical(query_parse(bquote(single(id == .(id)))), res)
+  expect_equal(res$type, "single")
+  expect_length(res$args, 1)
+  expect_equal(res$args[[1]]$type, "test")
+  expect_equal(res$args[[1]]$name, "==")
+  expect_length(res$args[[1]]$args, 2)
+  expect_equal(res$args[[1]]$args[[1]], list(type = "lookup", name = "id"))
+  expect_equal(res$args[[1]]$args[[2]], list(type = "literal", value = id))
+})
+
+
+test_that("outpack_query allows ids", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp, recursive = TRUE))
+  root <- outpack_init(tmp, use_file_store = TRUE)
+  ids <- vcapply(1:3, function(i) create_random_packet(tmp))
+  expect_identical(outpack_query(ids[[1]], root = root), ids[[1]])
+  expect_identical(outpack_query(ids[[2]], root = root), ids[[2]])
+  expect_error(
+    outpack_query("20220722-085951-148b7686", root = root),
+    "Query did not produce exactly one id")
+})

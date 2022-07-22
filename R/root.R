@@ -160,12 +160,8 @@ outpack_root_open <- function(path, locate = TRUE) {
 
 
 read_location <- function(location_id, root_path, prev) {
-  ## TODO: If we're more relaxed here about format, then this will
-  ## need changing.  This regex will end up moving somewhere central
-  ## in the package in that case.
-  re <- "^([0-9]{8}-[0-9]{6}-[[:xdigit:]]{8})$"
   path <- file.path(root_path, ".outpack", "location", location_id)
-  packets <- dir(path, re)
+  packets <- dir(path, re_id)
   is_new <- !(packets %in% prev$packet[prev$location == location_id])
   if (!any(is_new)) {
     return(NULL)

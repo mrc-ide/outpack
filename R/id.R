@@ -16,8 +16,7 @@ outpack_id <- function() {
 
 validate_outpack_id <- function(id) {
   assert_scalar_character(id)
-  ## NOTE: could read this from id.json
-  if (!grepl("^[0-9]{8}-[0-9]{6}-[0-9a-f]{8}$", id)) {
+  if (!grepl(re_id, id)) {
     stop(sprintf("Malformed id '%s'", id), call. = FALSE)
   }
 }

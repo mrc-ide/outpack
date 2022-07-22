@@ -274,7 +274,8 @@ query_eval_single <- function(query, index, pars) {
   candidates <- query_eval(query$args[[1]], index, pars)
   len <- length(candidates)
   if (len == 0) {
-    query_eval_error("Query did not find any packets", query$expr, query$context)
+    query_eval_error("Query did not find any packets",
+                     query$expr, query$context)
   } else if (len > 1) {
     query_eval_error(
       sprintf("Query found %d packets, but expected exactly one", len),

@@ -230,8 +230,7 @@ test_that("single requires exactly one packet", {
   on.exit(unlink(tmp, recursive = TRUE))
   root <- outpack_init(tmp, use_file_store = TRUE)
 
-  ids <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "x", list(a = i)))
+  ids <- vcapply(1:3, function(i) create_random_packet(tmp, "x", list(a = i)))
   expect_equal(outpack_query(quote(single(parameter:a == 2)), root = root),
                ids[[2]])
   expect_error(outpack_query(quote(single(parameter:a >= 2)), root = root),

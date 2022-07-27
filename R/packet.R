@@ -253,14 +253,16 @@ outpack_packet_add_custom <- function(application, data, schema = NULL) {
 
   tryCatch(
     jsonlite::parse_json(data),
-    error = function(e)
-      stop("Syntax error in custom metadata: ", e$message, call. = FALSE))
+    error = function(e) {
+      stop("Syntax error in custom metadata: ", e$message, call. = FALSE)
+    })
 
   if (should_validate_schema(schema)) {
     tryCatch(
       custom_schema(schema)$validate(data, error = TRUE),
-      error = function(e)
-        stop("Validating custom metadata failed: ", e$message, call. = FALSE))
+      error = function(e) {
+        stop("Validating custom metadata failed: ", e$message, call. = FALSE)
+      })
   }
 
   if (application %in% vcapply(p$custom, "[[", "application")) {

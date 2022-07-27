@@ -147,14 +147,10 @@ test_that("Scope queries", {
   on.exit(unlink(tmp, recursive = TRUE))
   root <- outpack_init(tmp, use_file_store = TRUE)
 
-  x1 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "x", list(a = 1)))
-  x2 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "x", list(a = 2)))
-  y1 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "y", list(a = 1)))
-  y2 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "y", list(a = 2)))
+  x1 <- vcapply(1:3, function(i) create_random_packet(tmp, "x", list(a = 1)))
+  x2 <- vcapply(1:3, function(i) create_random_packet(tmp, "x", list(a = 2)))
+  y1 <- vcapply(1:3, function(i) create_random_packet(tmp, "y", list(a = 1)))
+  y2 <- vcapply(1:3, function(i) create_random_packet(tmp, "y", list(a = 2)))
 
   expect_equal(
     outpack_query(quote(parameter:a == 1), root = root),
@@ -180,8 +176,9 @@ test_that("location based queries", {
 
   ids <- list()
   for (name in c("x", "y", "z")) {
-    ids[[name]] <- vcapply(1:3, function(i)
-      create_random_packet(root[[name]], "data", list(p = i)))
+    ids[[name]] <- vcapply(1:3, function(i) {
+      create_random_packet(root[[name]], "data", list(p = i))
+    })
   }
   outpack_location_pull_metadata(root = path$a)
 
@@ -205,10 +202,8 @@ test_that("Can filter based on given values", {
   on.exit(unlink(tmp, recursive = TRUE))
   root <- outpack_init(tmp, use_file_store = TRUE)
 
-  x1 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "x", list(a = 1)))
-  x2 <- vcapply(1:3, function(i)
-    create_random_packet(tmp, "x", list(a = 2)))
+  x1 <- vcapply(1:3, function(i) create_random_packet(tmp, "x", list(a = 1)))
+  x2 <- vcapply(1:3, function(i) create_random_packet(tmp, "x", list(a = 2)))
 
   expect_equal(
     outpack_query(quote(latest(parameter:a == this:a)),
@@ -285,8 +280,9 @@ test_that("Can filter query to packets that are locally available (unpacked)", {
 
   ids <- list()
   for (name in c("x", "y", "z")) {
-    ids[[name]] <- vcapply(1:3, function(i)
-      create_random_packet(root[[name]], "data", list(p = i)))
+    ids[[name]] <- vcapply(1:3, function(i) {
+      create_random_packet(root[[name]], "data", list(p = i))
+    })
   }
   outpack_location_pull_metadata(root = path$a)
 

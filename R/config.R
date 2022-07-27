@@ -108,8 +108,9 @@ config_serialise <- function(config, path) {
     c(lapply(loc[setdiff(names(loc), "args")], scalar),
       list(args = lapply(loc$args[[1]], scalar)))
   }
-  config$location <- lapply(seq_len(nrow(config$location)), function(i)
-    prepare_location(config$location[i, ]))
+  config$location <- lapply(seq_len(nrow(config$location)), function(i) {
+    prepare_location(config$location[i, ])
+  })
 
   to_json(config, "config")
 }

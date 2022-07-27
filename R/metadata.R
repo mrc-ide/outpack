@@ -114,9 +114,10 @@ outpack_metadata_load <- function(json) {
                            hash = vcapply(data$files, "[[", "hash"))
   data$depends <- data_frame(
     id = vcapply(data$depends, "[[", "id"),
-    files = I(lapply(data$depends, function(x)
+    files = I(lapply(data$depends, function(x) {
       data_frame(here = vcapply(x$files, "[[", "here"),
-                 there = vcapply(x$files, "[[", "there")))))
+                 there = vcapply(x$files, "[[", "there"))
+    })))
 
   data
 }

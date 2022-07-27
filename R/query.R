@@ -55,11 +55,16 @@ outpack_query <- function(expr, pars = NULL, scope = NULL,
 
 query_parse <- function(expr) {
   if (is.character(expr)) {
-    expr <- parse(text = expr, keep.source = FALSE)
-    if (length(expr) != 1L) {
-      stop("Expected a single expression")
+    if (length(expr) == 1 && grepl(re_id, expr)) {
+      ## If we're given a single id, we construct a simple query with it
+      expr <- bquote(single(id == .(expr)))
+    } else {
+      expr <- parse(text = expr, keep.source = FALSE)
+      if (length(expr) != 1L) {
+        stop("Expected a single expression")
+      }
+      expr <- expr[[1L]]
     }
-    expr <- expr[[1L]]
   } else if (!is.language(expr)) {
     stop("Invalid input for query")
   }
@@ -76,7 +81,12 @@ query_parse <- function(expr) {
 query_functions <- list(
   group = list("(" = 1, "!" = 1, "&&" = 2, "||" = 2),
   test = list("==" = 2, "!=" = 2, "<" = 2, "<=" = 2, ">" = 2, ">=" = 2),
-  other = list(latest = c(0, 1), at_location = c(1, Inf)))
+  other = list(latest = c(0, 1), single = 1, at_location = c(1, Inf)))
+
+
+query_component <- function(type, expr, context, args, ...) {
+  list(type = type, expr = expr, context = context, args = args, ...)
+}
 
 
 query_parse_expr <- function(expr, context) {
@@ -85,6 +95,7 @@ query_parse_expr <- function(expr, context) {
          test = query_parse_test(expr, context),
          group = query_parse_group(expr, context),
          latest = query_parse_latest(expr, context),
+         single = query_parse_single(expr, context),
          at_location = query_parse_at_location(expr, context),
          ## normally unreachable
          stop("Unhandled expression [outpack bug - please report]"))
@@ -92,22 +103,28 @@ query_parse_expr <- function(expr, context) {
 
 
 query_parse_test <- function(expr, context) {
-  list(type = "test",
-       name = deparse(expr[[1]]),
-       args = lapply(expr[-1], query_parse_value, context))
+  args <- lapply(expr[-1], query_parse_value, context)
+  name <- deparse(expr[[1]])
+  query_component("test", expr, context, args, name = name)
 }
 
 
 query_parse_group <- function(expr, context) {
-  list(type = "group",
-       name = deparse(expr[[1]]),
-       args = lapply(expr[-1], query_parse_expr, context))
+  args <- lapply(expr[-1], query_parse_expr, context)
+  name <- deparse(expr[[1]])
+  query_component("group", expr, context, args, name = name)
 }
 
 
 query_parse_latest <- function(expr, context) {
-  list(type = "latest",
-       args = lapply(expr[-1], query_parse_expr, context))
+  args <- lapply(expr[-1], query_parse_expr, context)
+  query_component("latest", expr, context, args)
+}
+
+
+query_parse_single <- function(expr, context) {
+  args <- lapply(expr[-1], query_parse_expr, context)
+  query_component("single", expr, context, args)
 }
 
 
@@ -118,20 +135,33 @@ query_parse_at_location <- function(expr, context) {
       "All arguments to at_location() must be string literals",
       expr, context)
   }
-  list(type = "at_location",
-       args = lapply(args, query_parse_value, context))
+  args <- lapply(args, query_parse_value, context)
+  query_component("at_location", expr, context, args)
+}
+
+
+query_error <- function(msg, expr, context, prefix) {
+  if (identical(expr, context)) {
+    stop(sprintf("%s\n  - %s %s", msg, prefix, deparse_str(expr)),
+         call. = FALSE)
+  } else {
+    width <- max(nchar(prefix), nchar("within"))
+    stop(sprintf("%s\n  - %s %s\n  - %s %s",
+                 msg,
+                 format(prefix, width = width), deparse_str(expr),
+                 format("within", width = width), deparse_str(context)),
+         call. = FALSE)
+  }
 }
 
 
 query_parse_error <- function(msg, expr, context) {
-  if (identical(expr, context)) {
-    stop(sprintf("%s\n  - in %s", msg, deparse_str(expr)),
-         call. = FALSE)
-  } else {
-    stop(sprintf("%s\n  - in     %s\n  - within %s",
-                 msg, deparse_str(expr), deparse_str(context)),
-         call. = FALSE)
-  }
+  query_error(msg, expr, context, "in")
+}
+
+
+query_eval_error <- function(msg, expr, context) {
+  query_error(msg, expr, context, "while evaluating")
 }
 
 
@@ -195,9 +225,9 @@ query_parse_check_call <- function(expr, context) {
 query_parse_value <- function(expr, context) {
   if (is.numeric(expr) || is.character(expr) || is.logical(expr)) {
     list(type = "literal", value = expr)
-  } else if (identical(expr, quote(name))) {
+  } else if (identical(expr, quote(name)) || identical(expr, quote(id))) {
     list(type = "lookup",
-         name = "name")
+         name = deparse(expr))
   } else if (is_call(expr, ":")) {
     name <- deparse_str(expr[[2]])
     valid <- c("parameter", "this")
@@ -223,6 +253,7 @@ query_eval <- function(query, index, pars) {
          group = query_eval_group(query, index, pars),
          test = query_eval_test(query, index, pars),
          latest = query_eval_latest(query, index, pars),
+         single = query_eval_single(query, index, pars),
          at_location = query_eval_at_location(query, index, pars),
          ## Normally unreachable
          stop("Unhandled expression [outpack bug - please report]"))
@@ -239,6 +270,21 @@ query_eval_latest <- function(query, index, pars) {
 }
 
 
+query_eval_single <- function(query, index, pars) {
+  candidates <- query_eval(query$args[[1]], index, pars)
+  len <- length(candidates)
+  if (len == 0) {
+    query_eval_error("Query did not find any packets",
+                     query$expr, query$context)
+  } else if (len > 1) {
+    query_eval_error(
+      sprintf("Query found %d packets, but expected exactly one", len),
+      query$expr, query$context)
+  }
+  candidates
+}
+
+
 query_eval_at_location <- function(query, index, pars) {
   location <- vcapply(query$args, "[[", "value")
   i <- vlapply(index$location, function(x) any(x %in% location))
@@ -249,8 +295,9 @@ query_eval_at_location <- function(query, index, pars) {
 query_eval_lookup <- function(query, index, pars) {
   switch(query$name,
          name = index$name,
+         id = index$id,
          parameter = lapply(index$parameters, "[[", query$query),
-         this = query_lookup_this(query$query, pars),
+         this = query_lookup_this(query$query, pars, query$expr, query$context),
          ## Normally unreachable
          stop("Unhandled lookup [outpack bug - please report]"))
 }
@@ -283,10 +330,11 @@ query_eval_test_binary <- function(op, a, b) {
 }
 
 
-query_lookup_this <- function(name, pars) {
+query_lookup_this <- function(name, pars, expr, context) {
   if (!(name %in% names(pars))) {
-    stop(sprintf("Did not find '%s' within given pars (%s)",
-                 name, paste(squote(names(pars)), collapse = ", ")))
+    msg <- sprintf("Did not find '%s' within given pars (%s)",
+                   name, paste(squote(names(pars)), collapse = ", "))
+    query_eval_error(msg, expr, context)
   }
   pars[[name]]
 }

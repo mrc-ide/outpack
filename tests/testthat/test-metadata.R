@@ -11,7 +11,8 @@ test_that("Can construct metadata with parameters", {
                                   depends = NULL,
                                   custom = NULL,
                                   session = NULL,
-                                  file_hash = NULL)
+                                  file_hash = NULL,
+                                  file_ignore = NULL)
   d <- outpack_metadata_load(json)
   expect_equal(d$parameters, parameters)
 })

@@ -47,3 +47,32 @@ create_random_packet_chain <- function(root, length) {
 
   id
 }
+
+
+create_temporary_root <- function(...) {
+  path <- tempfile()
+  withr::defer_parent(unlink(path, recursive = TRUE))
+  outpack_init(path, ...)
+}
+
+
+## A really simple example that we use in a few places
+create_temporary_simple_src <- function() {
+  path <- tempfile()
+  withr::defer_parent(unlink(path, recursive = TRUE))
+  fs::dir_create(path)
+
+  path <- tempfile()
+  fs::dir_create(path)
+  writeLines(c(
+    "d <- read.csv('data.csv')",
+    "png('zzz.png')",
+    "plot(d)",
+    "dev.off()"),
+    file.path(path, "script.R"))
+  write.csv(data.frame(x = 1:10, y = runif(10)),
+            file.path(path, "data.csv"),
+            row.names = FALSE)
+
+  path
+}

@@ -94,6 +94,7 @@ outpack_packet_end <- function() {
                                   custom = p$custom,
                                   session = NULL,
                                   file_hash = p$files$immutable,
+                                  file_ignore = p$files$ignored,
                                   hash_algorithm = hash_algorithm)
   outpack_insert_packet(p$path, json, p$root)
   outpack_packet_clear()
@@ -253,14 +254,16 @@ outpack_packet_add_custom <- function(application, data, schema = NULL) {
 
   tryCatch(
     jsonlite::parse_json(data),
-    error = function(e)
-      stop("Syntax error in custom metadata: ", e$message, call. = FALSE))
+    error = function(e) {
+      stop("Syntax error in custom metadata: ", e$message, call. = FALSE)
+    })
 
   if (should_validate_schema(schema)) {
     tryCatch(
       custom_schema(schema)$validate(data, error = TRUE),
-      error = function(e)
-        stop("Validating custom metadata failed: ", e$message, call. = FALSE))
+      error = function(e) {
+        stop("Validating custom metadata failed: ", e$message, call. = FALSE)
+      })
   }
 
   if (application %in% vcapply(p$custom, "[[", "application")) {
@@ -285,32 +288,50 @@ outpack_packet_add_custom <- function(application, data, schema = NULL) {
 ##' @param files A character vector of relative paths
 ##'
 ##' @param status A status to mark the file with. Must be "immutable"
-##'   for now, later we will expand this.
+##'   or "ignored"
 ##'
-##' @return
+##' @return Depending on function
+##'
 ##' * `outpack_packet_file_mark` returns nothing
 ##' * `outpack_packet_file_list` returns a [data.frame] with columns
-##'   `path` and `status` (`immutable` or `unknown`)
+##'   `path` and `status` (`immutable`, `ignored` or `unknown`)
 ##'
 ##' @rdname outpack_packet_file
 ##'
 ##' @export
-outpack_packet_file_mark <- function(files, status = "immutable") {
-  status <- match_value(status, "immutable")
+outpack_packet_file_mark <- function(files, status) {
+  status <- match_value(status, c("immutable", "ignored"))
   p <- outpack_packet_current()
 
   assert_relative_path(files, no_dots = TRUE)
   assert_file_exists(files, p$path)
 
-  hash_algorithm <- p$root$config$core$hash_algorithm
-  value <- with_dir(p$path, hash_files(files, hash_algorithm, named = TRUE))
+  ## TODO: these are exclusive categories because we later return a
+  ## 1:1 mapping of file to status
+  if (status == "immutable") {
+    hash_algorithm <- p$root$config$core$hash_algorithm
+    value <- with_dir(p$path, hash_files(files, hash_algorithm, named = TRUE))
 
-  if (any(files %in% names(p$files$immutable))) {
-    validate_hashes(value, p$files$immutable)
-    value <- value[!(names(value) %in% names(p$files))]
+    if (any(files %in% p$files$ignored)) {
+      stop(sprintf("Cannot mark ignored files as immutable: %s",
+                   paste(squote(intersect(files, p$files$ignored)),
+                         collapse = ", ")))
+    }
+    if (any(files %in% names(p$files$immutable))) {
+      validate_hashes(value, p$files$immutable)
+      value <- value[!(names(value) %in% names(p$files))]
+    }
+
+    current$packet$files$immutable <- c(p$files$immutable, value)
+  } else if (status == "ignored") {
+    if (any(files %in% names(p$files$immutable))) {
+      stop(sprintf("Cannot mark immutable files as ignored: %s",
+                   paste(squote(intersect(files, names(p$files$immutable))),
+                         collapse = ", ")))
+    }
+
+    current$packet$files$ignored <- union(p$files$ignored, files)
   }
-
-  current$packet$files$immutable <- c(p$files$immutable, value)
   invisible()
 }
 
@@ -323,6 +344,7 @@ outpack_packet_file_list <- function() {
                     dir(all.files = TRUE, recursive = TRUE, no.. = TRUE))
   status <- rep("unknown", length(files))
   status[files %in% names(p$files$immutable)] <- "immutable"
+  status[files %in% p$files$ignored] <- "ignored"
   data_frame(path = files, status = status)
 }
 

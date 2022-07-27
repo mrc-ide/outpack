@@ -504,14 +504,14 @@ test_that("Can hash files on startup", {
   p <- outpack_packet_start(path_src, "example", root = root)
   expect_equal(outpack_packet_file_list(),
                data_frame(path = inputs, status = "unknown"))
-  outpack_packet_file_mark(inputs)
+  outpack_packet_file_mark(inputs, "immutable")
   expect_equal(outpack_packet_file_list(),
                data_frame(path = inputs, status = "immutable"))
   outpack_packet_run("script.R")
   expect_equal(outpack_packet_file_list(),
                data_frame(path = c(inputs, "zzz.png"),
                           status = c("immutable", "immutable", "unknown")))
-  outpack_packet_file_mark("zzz.png")
+  outpack_packet_file_mark("zzz.png", "immutable")
   expect_equal(outpack_packet_file_list(),
                data_frame(path = c(inputs, "zzz.png"), status = "immutable"))
   outpack_packet_end()
@@ -544,7 +544,7 @@ test_that("Can detect changes to hashed files", {
             row.names = FALSE)
   inputs <- c("script.R", "data.csv")
   p <- outpack_packet_start(path_src, "example", root = root)
-  outpack_packet_file_mark(inputs)
+  outpack_packet_file_mark(inputs, "immutable")
   outpack_packet_run("script.R")
   expect_error(
     outpack_packet_end(),
@@ -565,10 +565,57 @@ test_that("Re-adding files triggers hash", {
   write.csv(mtcars, file.path(path_src, "data.csv"))
 
   p <- outpack_packet_start(path_src, "example", root = root)
-  outpack_packet_file_mark("data.csv")
-  expect_silent(outpack_packet_file_mark("data.csv"))
+  outpack_packet_file_mark("data.csv", "immutable")
+  expect_silent(outpack_packet_file_mark("data.csv", "immutable"))
   expect_length(outpack_packet_current()$files, 1)
   file.create(file.path(path_src, "data.csv"))
-  expect_error(outpack_packet_file_mark("data.csv"),
+  expect_error(outpack_packet_file_mark("data.csv", "immutable"),
                "File was changed after being added: 'data.csv'")
+})
+
+
+test_that("Can ignore files from the final packet", {
+  on.exit(outpack_packet_clear(), add = TRUE)
+  root <- create_temporary_root(path_archive = "archive", use_file_store = TRUE)
+  path_src <- create_temporary_simple_src()
+
+  inputs <- c("data.csv", "script.R")
+
+  p <- outpack_packet_start(path_src, "example", root = root)
+  expect_equal(outpack_packet_file_list(),
+               data_frame(path = inputs, status = "unknown"))
+  outpack_packet_file_mark("data.csv", "ignored")
+  expect_equal(outpack_packet_file_list(),
+               data_frame(path = inputs, status = c("ignored", "unknown")))
+  outpack_packet_run("script.R")
+  expect_equal(outpack_packet_file_list(),
+               data_frame(path = c(inputs, "zzz.png"),
+                          status = c("ignored", "unknown", "unknown")))
+  outpack_packet_end()
+
+  meta <- root$metadata(p$id)
+  expect_equal(meta$files$path, c("script.R", "zzz.png"))
+  expect_length(root$files$list(), 2)
+  expect_setequal(dir(file.path(root$path, "archive", "example", p$id)),
+                  c("script.R", "zzz.png"))
+  expect_setequal(dir(path_src),
+                  c("data.csv", "script.R", "zzz.png"))
+})
+
+
+test_that("Files cannot be immutable and ignored", {
+  on.exit(outpack_packet_clear(), add = TRUE)
+  root <- create_temporary_root(path_archive = "archive", use_file_store = TRUE)
+  path_src <- create_temporary_simple_src()
+
+  p <- outpack_packet_start(path_src, "example", root = root)
+  outpack_packet_file_mark("data.csv", "ignored")
+  outpack_packet_file_mark("script.R", "immutable")
+
+  expect_error(
+    outpack_packet_file_mark("data.csv", "immutable"),
+    "Cannot mark ignored files as immutable: 'data.csv'")
+  expect_error(
+    outpack_packet_file_mark("script.R", "ignored"),
+    "Cannot mark immutable files as ignored: 'script.R'")
 })

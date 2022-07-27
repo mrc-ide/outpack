@@ -1,7 +1,7 @@
 outpack_metadata_create <- function(path, name, id, time, files,
                                     depends, parameters,
                                     script, custom, session,
-                                    file_hash,
+                                    file_hash, file_ignore,
                                     hash_algorithm) {
   assert_scalar_character(name)
   assert_scalar_character(id)
@@ -22,6 +22,10 @@ outpack_metadata_create <- function(path, name, id, time, files,
   } else {
     assert_relative_path(files, no_dots = TRUE)
     assert_file_exists(files, path)
+  }
+
+  if (length(file_ignore) > 0) {
+    files <- setdiff(files, file_ignore)
   }
 
   ## In the most simple case we could just do nothing about inputs vs
@@ -114,9 +118,10 @@ outpack_metadata_load <- function(json) {
                            hash = vcapply(data$files, "[[", "hash"))
   data$depends <- data_frame(
     id = vcapply(data$depends, "[[", "id"),
-    files = I(lapply(data$depends, function(x)
+    files = I(lapply(data$depends, function(x) {
       data_frame(here = vcapply(x$files, "[[", "here"),
-                 there = vcapply(x$files, "[[", "there")))))
+                 there = vcapply(x$files, "[[", "there"))
+    })))
 
   data
 }

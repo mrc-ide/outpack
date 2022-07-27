@@ -23,7 +23,9 @@ Suggests:
     knitr,
     mockery,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
+>>>>>>> Allow marking files as ignored
 Config/testthat/edition: 3
 Remotes:
     ropensci/jsonvalidate

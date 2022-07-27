@@ -5,7 +5,7 @@
 \alias{outpack_packet_file_list}
 \title{Mark files during packet run}
 \usage{
-outpack_packet_file_mark(files, status = "immutable")
+outpack_packet_file_mark(files, status)
 
 outpack_packet_file_list()
 }
@@ -13,13 +13,14 @@ outpack_packet_file_list()
 \item{files}{A character vector of relative paths}
 
 \item{status}{A status to mark the file with. Must be "immutable"
-for now, later we will expand this.}
+or "ignored"}
 }
 \value{
+Depending on function
 \itemize{
 \item \code{outpack_packet_file_mark} returns nothing
 \item \code{outpack_packet_file_list} returns a \link{data.frame} with columns
-\code{path} and \code{status} (\code{immutable} or \code{unknown})
+\code{path} and \code{status} (\code{immutable}, \code{ignored} or \code{unknown})
 }
 }
 \description{

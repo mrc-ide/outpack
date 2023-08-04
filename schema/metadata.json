@@ -33,6 +33,7 @@
                         "additionalProperties": ["boolean", "number", "string"]
                     }
                 ]
+            }
         },
 
         "time": {

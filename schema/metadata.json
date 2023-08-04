@@ -17,23 +17,24 @@
         },
 
         "name": {
-            "description": "Task name. No restrictions on contents",
+            "description": "Packet name. No restrictions on contents",
             "type": "string"
         },
 
         "parameters": {
-            "description": "Task parameters, used when running and for querying. Parameters may only be simple types",
-            "type": {
-                "oneOf": [
-                    {
-                        "type": "null"
-                    },
-                    {
-                        "type": "object",
-                        "additionalProperties": ["boolean", "number", "string"]
+        "parameters": {
+            "description": "Packet parameters, used when running and for querying. Parameters may only be simple types",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": ["boolean", "number", "string"]
                     }
-                ]
-            }
+                }
+            ]
         },
 
         "time": {

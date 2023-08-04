@@ -22,7 +22,6 @@
         },
 
         "parameters": {
-        "parameters": {
             "description": "Packet parameters, used when running and for querying. Parameters may only be simple types",
             "oneOf": [
                 {

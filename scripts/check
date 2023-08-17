@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+
+def check_file(path, version):
+    with path.open() as f:
+        dat = json.load(f)
+    version_found = dat["version"]
+    if version_found != version:
+        msg = f"{path.name} has version '{version_found}' not '{version}'"
+        raise Exception(msg)
+
+
+
+def check_dir(path, version):
+    errs = {}
+    for p in Path(path).iterdir():
+        try:
+            print(f"Checking {path}", end="")
+            check_file(p, version)
+            print(f"...ok")
+        except Exception as e:
+            print(f"...failed:\n  => {e}")
+            errs[p.name] = e
+    return errs
+
+
+if __name__ == "__main__":
+    check_dir("schema", "0.1.1")

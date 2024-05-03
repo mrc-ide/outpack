@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 import json
+import sys
 from pathlib import Path
+
+import jsonschema
+
+VALIDATOR = jsonschema.validators.Draft7Validator
+
 
 def check_file(path, version):
     with path.open() as f:
@@ -10,20 +16,22 @@ def check_file(path, version):
         msg = f"{path.name} has version '{version_found}' not '{version}'"
         raise Exception(msg)
 
+    VALIDATOR.check_schema(dat)
 
 
 def check_dir(path, version):
-    errs = {}
+    ok = True
     for p in Path(path).iterdir():
         try:
-            print(f"Checking {path}", end="")
+            print(f"Checking {p}", end="")
             check_file(p, version)
             print(f"...ok")
         except Exception as e:
             print(f"...failed:\n  => {e}")
-            errs[p.name] = e
-    return errs
+            ok = False
+    return ok
 
 
 if __name__ == "__main__":
-    check_dir("schema", "0.1.1")
+    if not check_dir("schema", "0.1.1"):
+        sys.exit(1)
